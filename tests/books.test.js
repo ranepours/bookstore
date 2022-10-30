@@ -10,15 +10,15 @@ let book_isbn;
 beforeEach(async() => {
     let res = await db.query(
         `INSERT INTO books 
-        (isbn, amazon_url, author, language,pages, publisher, title, year) 
-        VALUES ('123432122', 
-        'https://amazon.com/taco', 
-        'Elie', 
-        'English', 
-        100, 
-        'Nothing publishers', 
-        'my first book', 
-        2008) 
+        (isbn, amazon_url, author, language, pages, publisher, title, year) 
+        VALUES ('95792046', 
+        'https://before.com', 
+        'Setup Author', 
+        'Setup Language', 
+        70, 
+        'Setup Pub', 
+        'Set Up', 
+        2022) 
         RETURNING isbn`
     );
     book_isbn = res.rows[0].isbn
@@ -27,14 +27,14 @@ beforeEach(async() => {
 describe("POST /books", () => {
     test("adds new book", async () => {
         const res = await request(app).post(`/books`).send({
-            isbn: '32794782',
-            amazon_url: "https://taco.com",
-            author: "mctest",
-            language: "english",
-            pages: 1000,
-            publisher: "yeah right",
-            title: "amazing times",
-            year: 2000
+            isbn: '773295',
+            amazon_url: "https://tester.com",
+            author: "test author",
+            language: "test language",
+            pages: 70,
+            publisher: "test pub",
+            title: "test",
+            year: 2022
         });
         
         expect(res.statusCode).toBe(201);
@@ -48,19 +48,67 @@ describe("POST /books", () => {
 
 describe("GET /books", () => {
     test("gets book via query", async () => {
-        
+        const res = await request(app).get(`/books`);
+        const books = res.body.books;
+        expect(books).toHaveLength(1);
+        expect(books[0]).toHaveProperty("isbn");
+        expect(books[0]).toHaveProperty("amazon_url");
     });
 });
 
-describe("PUT /books/:isbn", () => {
+describe("GET /books/:isbn", () => {
     test("updates ONE book", async () => {
-        
+        const res = await request(app).get(`/books/${book_isbn}`);
+        expect(res.body.book).toHaveProperty("isbn");
+        expect(res.body.book.isbn).toHaveProperty(book_isbn);
     });
+    test("404 if book not found", async () => {
+        const res = await request(app).get(`/books/10000000`);
+        expect(res.statusCode).toBe(404);
+    })
+});
+
+describe("PUT /books/:isbn", () => {
+    test("Updates a single book", async() => {
+        const res = await request(app).put(`/books/${book_isbn}`).send({
+            isbn: '773295',
+            amazon_url: "https://tester.com",
+            author: "test author",
+            language: "test language",
+            pages: 70,
+            publisher: "test pub",
+            title: "test",
+            year: 2022
+        });
+        expect(res.body.book).toHaveProperty("isbn");
+        expect(res.body.book.title).toBe("UPDATED BOOK");
+    });
+    
+    test("Prevents a bad book update", async() => {
+        const res = await request(app).put(`/books/${book_isbn}`).send({
+            isbn: '773295',
+            amazon_url: "https://tester.com",
+            author: "test author",
+            language: "test language",
+            pages: 70,
+            publisher: "test pub",
+            title: "test",
+            year: 2022
+        });
+        expect(res.statusCode).toBe(400);
+    });
+    
+    test("Responds 404 if can't find book in question", async() => {
+        await request(app).delete(`/books/${book_isbn}`); //removes book so we can actually get the 404
+        const res = await request(app).delete(`/books/${book_isbn}`);
+        expect(res.statusCode).toBe(404);
+      });
 });
 
 describe("DELETE /books/:isbn", () => {
     test("deletes ONE book", async () => {
-        
+        const res = await request(app).delete(`/books/${book_isbn}`);
+        expect(res.body).toEqual({message: "Book deleted"});
     });
 });
 
