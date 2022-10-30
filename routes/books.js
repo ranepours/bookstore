@@ -1,11 +1,13 @@
 const express = require("express");
 const Book = require("../models/book");
 
+const { validate } = require("jsonschema");
+const bookSchemaNew = require("../schemas/bookSchemaNew");
+const bookSchemaUpdate = require("../schemas/bookSchemaUpdate");
+
 const router = new express.Router();
 
-
 /** GET / => {books: [book, ...]}  */
-
 router.get("/", async function (req, res, next) {
   try {
     const books = await Book.findAll(req.query);
@@ -16,8 +18,7 @@ router.get("/", async function (req, res, next) {
 });
 
 /** GET /[id]  => {book: book} */
-
-router.get("/:id", async function (req, res, next) {
+router.get("/:isbn", async function (req, res, next) {
   try {
     const book = await Book.findOne(req.params.id);
     return res.json({ book });
@@ -27,29 +28,46 @@ router.get("/:id", async function (req, res, next) {
 });
 
 /** POST /   bookData => {book: newBook}  */
-
 router.post("/", async function (req, res, next) {
   try {
+    const validity = validate(req.body, bookSchemaNew);
+    if(!validity.valid){
+      return  next({
+        status: 400,
+        error: validity.errors.map(e => e.stack)
+      });
+    }
     const book = await Book.create(req.body);
-    return res.status(201).json({ book });
+    return res.status(201).json({book});
   } catch (err) {
     return next(err);
   }
 });
 
 /** PUT /[isbn]   bookData => {book: updatedBook}  */
-
 router.put("/:isbn", async function (req, res, next) {
   try {
+    if("isbn" in req.body){
+      return next({
+        status: 400,
+        message: "Unauthorized"
+      })
+    }
+    const validity = validate(req.body, bookSchemaUpdate);
+    if(!validity.valid){
+      return next ({
+        status: 400,
+        errors: validity.errors.map(e => e.stack)
+      })
+    }
     const book = await Book.update(req.params.isbn, req.body);
-    return res.json({ book });
+    return res.json({book});
   } catch (err) {
     return next(err);
   }
 });
 
 /** DELETE /[isbn]   => {message: "Book deleted"} */
-
 router.delete("/:isbn", async function (req, res, next) {
   try {
     await Book.remove(req.params.isbn);
